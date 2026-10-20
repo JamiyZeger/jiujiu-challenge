@@ -349,7 +349,7 @@
       <span class="op">=</span>
       <span class="ans pending" id="ans">？</span>
       <input class="typein" id="typeIn" type="text" inputmode="numeric" pattern="[0-9]*"
-             autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+             enterkeyhint="done" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
              maxlength="3" placeholder="？" aria-label="请输入答案">
     </div>
 
@@ -452,7 +452,7 @@
     </div>
   </details>
 
-  <div class="hint" id="hint">直接敲数字键输入 · 回车提交 · 退格删除</div>
+  <div class="hint" id="hint">直接敲数字 · 回车或点题卡提交 · 退格删除</div>
 </div>
 
 <script>
@@ -747,6 +747,31 @@
     try { typeIn.focus({ preventScroll: true }); } catch (e) { typeIn.focus(); }
   }
 
+  // 开始作答时收起设置面板，避免手机上键盘/焦点被面板吸走导致回车无效
+  function collapsePanels() {
+    var ids = ['settings', 'mistakes'];
+    for (var i = 0; i < ids.length; i++) {
+      var el = document.getElementById(ids[i]);
+      if (el && el.open) el.open = false;
+    }
+  }
+
+  // 手机键盘的“确认/完成”在不同系统上可能不是 key === 'Enter'
+  function isEnterKey(e) {
+    return e.key === 'Enter' || e.keyCode === 13 || e.which === 13 || e.code === 'NumpadEnter';
+  }
+
+  // 主按钮文案随状态变化，输入模式下就是“确定作答”
+  function updateActionLabel() {
+    var btn = document.getElementById('nextBtn');
+    if (!btn) return;
+    var label;
+    if (phase === 'done') label = '再来一轮';
+    else if (phase === 'question') label = cfg.mode === 'input' ? '确定作答' : '揭晓答案';
+    else label = '下一题';
+    if (btn.textContent !== label) btn.textContent = label;
+  }
+
   function startQuestion() {
     clearTimers();
     phase = 'question';
@@ -790,6 +815,7 @@
     }
 
     updateMeta();
+    updateActionLabel();
   }
 
   /* ---------- 看答案模式 ---------- */
@@ -822,6 +848,7 @@
     var raw = typeIn.value.trim();
     if (!isTimeout && !raw) return;   // 回车提交时没输入，忽略
 
+    collapsePanels();
     var q = deck[idx];
     var expected = q[0] * q[1];
     var got = raw ? parseInt(raw, 10) : null;
@@ -843,6 +870,7 @@
       saveStats();
       updateStats();
       updateMeta();
+      updateActionLabel();
       autoTimer = setTimeout(function () { autoTimer = null; goNext(); }, 620);
       return;
     }
@@ -870,6 +898,7 @@
     saveStats();
     updateStats();
     updateMeta();
+    updateActionLabel();
   }
 
   function submit() { judge(false); }
@@ -901,6 +930,7 @@
     trackEl.classList.remove('invisible');
     setCd('已完成');
     updateMeta();
+    updateActionLabel();
   }
 
   function goNext() {
@@ -932,8 +962,13 @@
   /* ---------- 交互 ---------- */
   cardEl.addEventListener('click', function (e) {
     if (e.target === typeIn) return;
-    if (cfg.mode === 'input' && phase === 'question') { focusInput(); return; }
-    if (phase === 'question') reveal();
+    if (cfg.mode === 'input' && phase === 'question') {
+      collapsePanels();                       // 开始作答就收起设置，避免手机回车失效
+      if (typeIn.value.trim()) submit();      // 已输入：点卡片直接提交
+      else focusInput();
+      return;
+    }
+    if (phase === 'question') { collapsePanels(); reveal(); }
     else if (phase === 'revealed') goNext();
     else if (phase === 'done') restart();
   });
@@ -973,18 +1008,20 @@
   typeIn.addEventListener('input', function () {
     var v = typeIn.value.replace(/\D/g, '').slice(0, 3);
     if (v !== typeIn.value) typeIn.value = v;
+    if (phase === 'question') collapsePanels();
   });
 
   // 全局键盘：任何时候都能直接敲数字，不需要先点屏幕
   document.addEventListener('keydown', function (e) {
     var isDigit = /^[0-9]$/.test(e.key);
+    var isEnter = isEnterKey(e);
     var tag = e.target && e.target.tagName;
 
     // 焦点在设置控件上时不要劫持按键
     if (tag === 'SELECT' || (tag === 'INPUT' && e.target !== typeIn)) return;
 
     if (e.target === typeIn) {
-      if (e.key === 'Enter') { e.preventDefault(); submit(); }
+      if (isEnter) { e.preventDefault(); submit(); }
       else if (e.key === 'Escape') { typeIn.value = ''; }
       return;
     }
@@ -993,6 +1030,7 @@
       if (phase === 'question') {
         if (isDigit) {
           e.preventDefault();
+          collapsePanels();
           focusInput();
           typeIn.value = (typeIn.value + e.key).slice(0, 3);
           return;
@@ -1003,18 +1041,18 @@
           typeIn.value = typeIn.value.slice(0, -1);
           return;
         }
-        if (e.key === 'Enter') { e.preventDefault(); submit(); return; }
+        if (isEnter) { e.preventDefault(); submit(); return; }
       } else if (phase === 'revealed') {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goNext(); return; }
+        if (isEnter || e.key === ' ') { e.preventDefault(); goNext(); return; }
       } else if (phase === 'done') {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); restart(); return; }
+        if (isEnter || e.key === ' ') { e.preventDefault(); restart(); return; }
       }
       return;
     }
 
-    if (e.key === ' ' || e.key === 'Enter') {
+    if (e.key === ' ' || isEnter) {
       e.preventDefault();
-      if (phase === 'question') reveal();
+      if (phase === 'question') { collapsePanels(); reveal(); }
       else if (phase === 'revealed') goNext();
       else restart();
     }
@@ -1050,8 +1088,8 @@
     limitsRow.classList.toggle('hide', !isInput || cfg.timing !== 'timed');
     hintEl.textContent = isInput
       ? (cfg.timing === 'timed'
-          ? '直接敲数字键输入 · 敲完自动判定，也可回车提前提交'
-          : '直接敲数字键输入 · 回车提交 · 退格删除')
+          ? '直接敲数字 · 敲完自动判定，也可回车或点题卡/「确定作答」提交'
+          : '直接敲数字 · 回车或点题卡提交 · 退格删除')
       : '空格 / 回车：立即揭晓 · 再按一次进入下一题';
   }
 
