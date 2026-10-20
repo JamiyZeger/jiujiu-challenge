@@ -1,0 +1,1150 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0f1e">
+<title>九九乘法表挑战</title>
+<style>
+  :root{
+    --bg:#0a0f1e;
+    --panel:rgba(255,255,255,.045);
+    --stroke:rgba(255,255,255,.09);
+    --text:#eaf1fe;
+    --muted:#8595b3;
+    --accent:#38bdf8;
+    --warm:#fb923c;
+    --ok:#34d399;
+    --bad:#f87171;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    margin:0;
+    background:
+      radial-gradient(900px 620px at 10% -12%, rgba(56,189,248,.16), transparent 60%),
+      radial-gradient(760px 560px at 92% 108%, rgba(251,146,60,.12), transparent 60%),
+      var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+    min-height:100%;
+    display:flex;
+    justify-content:center;
+    padding:26px 18px calc(26px + env(safe-area-inset-bottom));
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{width:100%;max-width:420px;display:flex;flex-direction:column;gap:13px}
+
+  /* 头部 */
+  .head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:0 2px}
+  .head h1{margin:0;font-size:19px;font-weight:650;letter-spacing:.06em}
+  .head .sub{font-size:10px;color:var(--muted);letter-spacing:.24em;text-transform:uppercase}
+  .meta{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;letter-spacing:.03em;text-align:right;line-height:1.55}
+  .meta #acc{color:rgba(133,149,179,.85)}
+
+  /* 题卡 */
+  .card{
+    position:relative;
+    border-radius:26px;
+    background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.022));
+    border:1px solid var(--stroke);
+    box-shadow:0 26px 70px rgba(0,0,0,.5), 0 1px 0 rgba(255,255,255,.05) inset;
+    padding:32px 20px 18px;
+    cursor:pointer;
+    overflow:hidden;
+    min-height:238px;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    transition:border-color .3s ease, box-shadow .3s ease;
+  }
+  .card.revealed{
+    border-color:rgba(52,211,153,.3);
+    box-shadow:0 26px 70px rgba(0,0,0,.5), 0 0 0 1px rgba(52,211,153,.08) inset, 0 0 44px rgba(52,211,153,.07);
+  }
+  .card.correct{
+    border-color:rgba(52,211,153,.55);
+    box-shadow:0 26px 70px rgba(0,0,0,.5), 0 0 0 1px rgba(52,211,153,.18) inset, 0 0 52px rgba(52,211,153,.15);
+  }
+  .card.wrong{
+    border-color:rgba(248,113,113,.45);
+    box-shadow:0 26px 70px rgba(0,0,0,.5), 0 0 0 1px rgba(248,113,113,.16) inset, 0 0 46px rgba(248,113,113,.12);
+    animation:shake .34s ease;
+  }
+  @keyframes shake{
+    0%,100%{transform:translateX(0)}
+    22%{transform:translateX(-7px)}
+    46%{transform:translateX(6px)}
+    70%{transform:translateX(-3px)}
+  }
+
+  .eq{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:.14em;
+    font-size:clamp(38px,12.5vw,56px);
+    font-weight:600;
+    letter-spacing:.01em;
+    font-variant-numeric:tabular-nums;
+    line-height:1.12;
+  }
+  .eq .op{color:var(--muted);font-weight:400;font-size:.72em;padding:0 .05em}
+
+  /* 答案位（看答案模式） */
+  .ans{
+    display:inline-block;
+    min-width:1.55em;
+    text-align:center;
+    color:rgba(234,241,254,.35);
+    transition:color .2s ease;
+  }
+  .ans:hover{color:rgba(234,241,254,.35)}
+  .ans.show{
+    color:var(--ok);
+    text-shadow:0 0 34px rgba(52,211,153,.45);
+    animation:pop .28s cubic-bezier(.34,1.56,.64,1);
+  }
+  @keyframes pop{from{transform:scale(.6);opacity:.2}to{transform:scale(1);opacity:1}}
+  @keyframes breathe{0%,100%{opacity:.35}50%{opacity:.85}}
+  .ans.pending{animation:breathe 1.8s ease-in-out infinite}
+
+  /* 输入框（输入模式） */
+  .typein{
+    display:none;
+    width:1.9em;
+    font:inherit;
+    font-weight:600;
+    text-align:center;
+    color:var(--accent);
+    background:transparent;
+    border:0;
+    outline:none;
+    padding:0;
+    margin:0;
+    caret-color:var(--accent);
+    font-variant-numeric:tabular-nums;
+    text-shadow:0 0 26px rgba(56,189,248,.4);
+  }
+  .typein::placeholder{color:rgba(234,241,254,.26);text-shadow:none}
+  .typein.ok{color:var(--ok);text-shadow:0 0 30px rgba(52,211,153,.5)}
+  .mode-input .typein{display:inline-block}
+  .mode-input .ans{display:none}
+
+  /* 倒计时 */
+  .cdrow{margin-top:22px;display:flex;flex-direction:column;gap:9px;align-items:center}
+  .bar-track{
+    width:100%;height:4px;border-radius:999px;
+    background:rgba(255,255,255,.07);
+    overflow:hidden;
+  }
+  .bar-track.invisible{visibility:hidden}
+  .bar-fill{
+    height:100%;width:0;border-radius:999px;
+    background:linear-gradient(90deg,rgba(56,189,248,.55),var(--accent));
+    box-shadow:0 0 14px rgba(56,189,248,.55);
+  }
+  .card.revealed .bar-fill{
+    background:linear-gradient(90deg,rgba(52,211,153,.5),var(--ok));
+    box-shadow:0 0 14px rgba(52,211,153,.5);
+  }
+  .card.wrong .bar-fill{
+    background:linear-gradient(90deg,rgba(248,113,113,.5),var(--bad));
+    box-shadow:0 0 14px rgba(248,113,113,.5);
+  }
+  .cd{font-size:11.5px;color:var(--muted);letter-spacing:.08em;font-variant-numeric:tabular-nums;text-align:center;min-height:16px}
+  .cd.ok{color:var(--ok)}
+  .cd.bad{color:var(--bad)}
+
+  /* 自评按钮（看答案模式） */
+  .assess{
+    display:flex;gap:8px;justify-content:center;margin-top:16px;
+    opacity:0;transform:translateY(6px);pointer-events:none;
+    transition:opacity .26s ease,transform .26s ease;
+  }
+  .assess.show{opacity:1;transform:none;pointer-events:auto}
+  .assess button{
+    appearance:none;font:inherit;font-size:12.5px;padding:8px 16px;
+    border-radius:999px;cursor:pointer;color:var(--text);
+    background:rgba(255,255,255,.06);
+    border:1px solid rgba(255,255,255,.11);
+    transition:background .2s ease,transform .12s ease;
+  }
+  .assess button:hover{background:rgba(255,255,255,.11)}
+  .assess button:active{transform:scale(.96)}
+  .assess button.known{border-color:rgba(52,211,153,.35);color:#a7f3d0}
+  .assess button.again{border-color:rgba(251,146,60,.32);color:#fed7aa}
+
+  /* 完成态 */
+  .done{
+    position:absolute;inset:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:8px;
+    background:rgba(10,15,30,.93);backdrop-filter:blur(6px);
+    opacity:0;pointer-events:none;transition:opacity .3s ease;
+    text-align:center;padding:0 24px;
+  }
+  .done.show{opacity:1;pointer-events:auto}
+  .done .big{font-size:21px;font-weight:640;letter-spacing:.04em}
+  .done .sm{font-size:12.5px;color:var(--muted);line-height:1.75}
+
+  /* 操作 */
+  .actions{display:flex;gap:9px}
+  .btn{
+    flex:1;appearance:none;font:inherit;font-size:13.5px;padding:12px;
+    border-radius:14px;cursor:pointer;color:var(--text);
+    background:rgba(255,255,255,.07);
+    border:1px solid rgba(255,255,255,.11);
+    letter-spacing:.04em;
+    transition:background .2s ease,transform .12s ease;
+  }
+  .btn:hover{background:rgba(255,255,255,.11)}
+  .btn:active{transform:scale(.98)}
+  .btn.primary{
+    background:linear-gradient(180deg,rgba(56,189,248,.92),rgba(14,165,233,.92));
+    border-color:rgba(56,189,248,.5);
+    color:#04121d;font-weight:600;
+  }
+  .btn.primary:hover{background:linear-gradient(180deg,rgba(96,205,255,.96),rgba(14,165,233,.96))}
+
+  /* 正确率统计条 */
+  .statbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    padding:9px 12px 9px 14px;
+    border-radius:14px;
+    background:var(--panel);
+    border:1px solid var(--stroke);
+    font-size:12.5px;
+    color:var(--muted);
+  }
+  .sb-left{display:flex;align-items:baseline;gap:7px;min-width:0}
+  .sb-label{letter-spacing:.06em}
+  #rate{
+    font-size:19px;
+    font-weight:640;
+    color:var(--accent);
+    font-variant-numeric:tabular-nums;
+    letter-spacing:.01em;
+    transition:color .25s ease;
+  }
+  #rate.good{color:var(--ok)}
+  #rate.bad{color:var(--bad)}
+  .sb-frac{font-size:11.5px;color:rgba(133,149,179,.85);font-variant-numeric:tabular-nums;letter-spacing:.02em}
+  #resetStats{
+    appearance:none;
+    font:inherit;
+    font-size:11.5px;
+    padding:5px 10px;
+    border-radius:9px;
+    cursor:pointer;
+    color:#9fb0cd;
+    background:rgba(255,255,255,.05);
+    border:1px solid rgba(255,255,255,.1);
+    transition:background .2s ease,color .2s ease;
+    white-space:nowrap;
+  }
+  #resetStats:hover{background:rgba(255,255,255,.1);color:var(--text)}
+
+  /* 设置 */
+  details{border-radius:16px;background:var(--panel);border:1px solid var(--stroke);padding:0 14px}
+  summary{
+    list-style:none;cursor:pointer;padding:12px 2px;font-size:12.5px;
+    color:#9fb0cd;letter-spacing:.06em;
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  summary::-webkit-details-marker{display:none}
+  summary::after{content:"＋";color:var(--muted);font-size:14px}
+  details[open] summary::after{content:"－"}
+  .setbody{display:flex;flex-direction:column;gap:13px;padding:2px 0 15px}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12.5px;color:#b9c7de}
+  .row select{
+    appearance:none;font:inherit;font-size:12.5px;
+    padding:7px 26px 7px 10px;border-radius:10px;color:var(--text);
+    background:rgba(255,255,255,.07) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M0 0l5 6 5-6z' fill='%238595b3'/></svg>") no-repeat right 9px center;
+    border:1px solid rgba(255,255,255,.11);
+  }
+  .row input[type=range]{
+    -webkit-appearance:none;width:122px;height:3px;border-radius:999px;
+    background:rgba(255,255,255,.14);outline:none;
+  }
+  .row input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:15px;height:15px;border-radius:50%;
+    background:var(--accent);box-shadow:0 0 10px rgba(56,189,248,.6);cursor:pointer;
+  }
+  .val{color:var(--accent);font-variant-numeric:tabular-nums;min-width:34px;text-align:right}
+  .switch{
+    position:relative;width:42px;height:24px;flex:0 0 42px;
+    border-radius:999px;background:rgba(255,255,255,.12);
+    border:1px solid rgba(255,255,255,.1);cursor:pointer;
+    transition:background .22s ease;
+  }
+  .switch::after{
+    content:"";position:absolute;top:2px;left:2px;
+    width:18px;height:18px;border-radius:50%;background:#cbd5e1;
+    transition:transform .22s cubic-bezier(.34,1.4,.64,1),background .22s ease;
+  }
+  .switch.on{background:rgba(56,189,248,.35)}
+  .switch.on::after{transform:translateX(18px);background:#e0f2fe}
+  .hint{font-size:11px;color:rgba(133,149,179,.72);text-align:center;letter-spacing:.05em;line-height:1.6}
+  .hide{display:none !important}
+
+  /* 错题本 */
+  .mb-badge{
+    font-size:10.5px;
+    min-width:18px;height:18px;
+    display:inline-flex;align-items:center;justify-content:center;
+    padding:0 5px;
+    border-radius:999px;
+    background:rgba(248,113,113,.14);
+    border:1px solid rgba(248,113,113,.28);
+    color:#fca5a5;
+    font-variant-numeric:tabular-nums;
+    letter-spacing:0;
+  }
+  .mb-summary{font-size:12px;color:#b9c7de;line-height:1.6}
+  .mb-list{display:flex;flex-wrap:wrap;gap:6px}
+  .mb-list:empty{display:none}
+  .mb-chip{
+    font-size:11.5px;
+    padding:4px 9px;
+    border-radius:9px;
+    background:rgba(248,113,113,.08);
+    border:1px solid rgba(248,113,113,.22);
+    color:#fecaca;
+    font-variant-numeric:tabular-nums;
+    letter-spacing:.02em;
+  }
+  .mb-note{font-size:11px;color:rgba(133,149,179,.7);line-height:1.6}
+  .mb-clear{
+    appearance:none;font:inherit;font-size:11.5px;padding:7px 12px;
+    border-radius:10px;cursor:pointer;color:#fca5a5;
+    background:rgba(248,113,113,.07);
+    border:1px solid rgba(248,113,113,.22);
+    align-self:flex-start;
+    transition:background .2s ease;
+  }
+  .mb-clear:hover{background:rgba(248,113,113,.14)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="head">
+    <div>
+      <h1>九九乘法表挑战</h1>
+      <div class="sub">Speed Drill</div>
+    </div>
+    <div class="meta">
+      <div id="meta">0 / 0</div>
+    </div>
+  </div>
+
+  <div class="card" id="card">
+    <div class="eq">
+      <span id="qa">7</span>
+      <span class="op">×</span>
+      <span id="qb">8</span>
+      <span class="op">=</span>
+      <span class="ans pending" id="ans">？</span>
+      <input class="typein" id="typeIn" type="text" inputmode="numeric" pattern="[0-9]*"
+             autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+             maxlength="3" placeholder="？" aria-label="请输入答案">
+    </div>
+
+    <div class="cdrow">
+      <div class="bar-track" id="track"><div class="bar-fill" id="bar"></div></div>
+      <div class="cd" id="cd">3 秒后揭晓</div>
+    </div>
+
+    <div class="assess" id="assess">
+      <button type="button" class="known" data-act="known">记住了</button>
+      <button type="button" class="again" data-act="again">再看一遍</button>
+    </div>
+
+    <div class="done" id="done">
+      <div class="big" id="doneTitle">本轮完成</div>
+      <div class="sm" id="doneSub">共 81 题</div>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button type="button" class="btn primary" id="nextBtn">下一题</button>
+    <button type="button" class="btn" id="restart">重新开始</button>
+  </div>
+
+  <div class="statbar" id="statbar">
+    <div class="sb-left">
+      <span class="sb-label">正确率</span>
+      <strong id="rate">—</strong>
+      <span class="sb-frac" id="frac">正确 0 / 0</span>
+    </div>
+    <button type="button" id="resetStats">重置统计</button>
+  </div>
+
+  <details id="settings">
+    <summary>练习设置</summary>
+    <div class="setbody">
+      <div class="row">
+        <span>练习模式</span>
+        <select id="mode">
+          <option value="input">输入答案（键盘作答）</option>
+          <option value="reveal">看答案（自动揭晓）</option>
+        </select>
+      </div>
+      <div class="row">
+        <span>题目范围</span>
+        <select id="scope">
+          <option value="all">全部 1–9（81 题）</option>
+          <option value="nine">常用 2–9（64 题）</option>
+          <option value="single">单张乘法表</option>
+          <option value="mistakes">错题强化（错题混入约 45%）</option>
+        </select>
+      </div>
+      <div class="row hide" id="singleRow">
+        <span>练习哪张表</span>
+        <select id="single">
+          <option>2</option><option>3</option><option>4</option><option>5</option>
+          <option>6</option><option>7</option><option>8</option><option>9</option>
+        </select>
+      </div>
+
+      <!-- 输入模式专用 -->
+      <div class="row inputOnly" id="timingRow">
+        <span>答题时限</span>
+        <select id="timing">
+          <option value="timed">限时作答</option>
+          <option value="infinite">不限时间</option>
+        </select>
+      </div>
+      <div class="row inputOnly" id="limitsRow">
+        <span>每题限时</span>
+        <input type="range" id="limit" min="2" max="15" step="1" value="6">
+        <span class="val" id="limitVal">6s</span>
+      </div>
+
+      <!-- 看答案模式专用 -->
+      <div class="row revealOnly" id="delayRow">
+        <span>揭晓倒计时</span>
+        <input type="range" id="delay" min="1" max="10" step="1" value="3">
+        <span class="val" id="delayVal">3s</span>
+      </div>
+      <div class="row revealOnly" id="autoRow">
+        <span>答完自动下一题</span>
+        <div class="switch" id="autoSw" data-on="0"></div>
+      </div>
+
+      <div class="row">
+        <span>乱序出题</span>
+        <div class="switch on" id="shuffleSw" data-on="1"></div>
+      </div>
+    </div>
+  </details>
+
+  <details id="mistakes">
+    <summary>错题本 <span class="mb-badge" id="mbBadge">0</span></summary>
+    <div class="setbody">
+      <div class="mb-summary" id="mbSummary">暂无错题，答错一次自动收录</div>
+      <div class="mb-list" id="mbList"></div>
+      <div class="mb-note">连续答对 3 次自动移出错题本 · 错得越多出现越频繁</div>
+      <button type="button" class="mb-clear" id="clearMistakes">清空错题本</button>
+    </div>
+  </details>
+
+  <div class="hint" id="hint">直接敲数字键输入 · 回车提交 · 退格删除</div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  var cardEl   = $('card');
+  var qaEl     = $('qa');
+  var qbEl     = $('qb');
+  var ansEl    = $('ans');
+  var typeIn   = $('typeIn');
+  var barEl    = $('bar');
+  var trackEl  = $('track');
+  var cdEl     = $('cd');
+  var metaEl   = $('meta');
+  var rateEl   = $('rate');
+  var fracEl   = $('frac');
+  var statbarEl= $('statbar');
+  var assessEl = $('assess');
+  var doneEl   = $('done');
+  var doneTitle= $('doneTitle');
+  var doneSub  = $('doneSub');
+  var hintEl   = $('hint');
+  var limitsRow= $('limitsRow');
+  var mbBadge  = $('mbBadge');
+  var mbSummary= $('mbSummary');
+  var mbList   = $('mbList');
+
+  var cfg = {
+    mode: 'input',        // input | reveal
+    scope: 'all',
+    single: 7,
+    delay: 3,             // 看答案：揭晓秒数
+    timing: 'timed',      // 输入：timed | infinite
+    limit: 6,             // 输入：每题限时秒数
+    shuffle: true,
+    auto: false
+  };
+
+  var deck = [];
+  var idx = 0;
+  var review = [];
+  var phase = 'question';   // question | revealed | done
+  var stats = { total: 0, correct: 0 };       // 累计统计，手动重置才清零
+  var roundStats = { total: 0, correct: 0 };  // 本轮统计，仅用于结束总结
+
+  // 错题本：key = "小数x大数"，count 累计错误次数，streak 连续答对次数（满 3 次毕业）
+  var mistakes = {};
+  var MISTAKE_PASS = 3;        // 连续答对次数达到即移出错题本
+  var MISTAKE_RATE = 0.42;     // 专项模式下错题混入概率（含基础题中的错题，实际约 45%）
+
+  var revealTimer = null, autoTimer = null, tickTimer = null;
+  var endAt = 0;
+
+  /* ---------- 配置持久化 ---------- */
+  function loadCfg() {
+    try {
+      var raw = localStorage.getItem('tt_cfg_v2') || localStorage.getItem('tt_cfg_v1');
+      if (!raw) return;
+      var o = JSON.parse(raw);
+      if (!o || typeof o !== 'object') return;
+      if (o.mode === 'input' || o.mode === 'reveal') cfg.mode = o.mode;
+      if (o.scope) cfg.scope = o.scope;
+      if (o.single) cfg.single = Math.min(9, Math.max(2, parseInt(o.single, 10) || cfg.single));
+      if (o.delay) cfg.delay = Math.min(10, Math.max(1, parseInt(o.delay, 10) || cfg.delay));
+      if (o.timing === 'timed' || o.timing === 'infinite') cfg.timing = o.timing;
+      if (o.limit) cfg.limit = Math.min(15, Math.max(2, parseInt(o.limit, 10) || cfg.limit));
+      if (typeof o.shuffle === 'boolean') cfg.shuffle = o.shuffle;
+      if (typeof o.auto === 'boolean') cfg.auto = o.auto;
+    } catch (e) {}
+  }
+  function saveCfg() {
+    try { localStorage.setItem('tt_cfg_v2', JSON.stringify(cfg)); } catch (e) {}
+  }
+
+  /* ---------- 错题本 ---------- */
+  function mistakeKey(a, b) {
+    var lo = Math.min(a, b), hi = Math.max(a, b);
+    return lo + 'x' + hi;
+  }
+
+  function loadMistakes() {
+    try {
+      var o = JSON.parse(localStorage.getItem('tt_mistakes_v1') || 'null');
+      if (o && typeof o === 'object') mistakes = o;
+    } catch (e) {}
+  }
+
+  function saveMistakes() {
+    try { localStorage.setItem('tt_mistakes_v1', JSON.stringify(mistakes)); } catch (e) {}
+  }
+
+  function recordMistake(a, b, isWrong) {
+    var k = mistakeKey(a, b);
+    if (isWrong) {
+      if (mistakes[k]) {
+        mistakes[k].count++;
+        mistakes[k].streak = 0;
+      } else {
+        mistakes[k] = { a: Math.min(a, b), b: Math.max(a, b), count: 1, streak: 0 };
+      }
+    } else {
+      var e = mistakes[k];
+      if (e) {
+        e.streak = (e.streak || 0) + 1;
+        if (e.streak >= MISTAKE_PASS) delete mistakes[k];   // 连续答对，毕业
+      }
+    }
+    saveMistakes();
+    renderMistakes();
+  }
+
+  function renderMistakes() {
+    var keys = Object.keys(mistakes);
+    var totalWrong = 0;
+    for (var i = 0; i < keys.length; i++) totalWrong += mistakes[keys[i]].count;
+
+    mbBadge.textContent = keys.length;
+
+    if (!keys.length) {
+      mbSummary.textContent = '暂无错题，答错一次自动收录';
+      mbList.innerHTML = '';
+      return;
+    }
+    mbSummary.textContent = '共 ' + keys.length + ' 道错题 · 累计答错 ' + totalWrong + ' 次';
+
+    var sorted = keys.slice().sort(function (x, y) {
+      return mistakes[y].count - mistakes[x].count;
+    });
+    var html = '';
+    for (var j = 0; j < sorted.length; j++) {
+      var m = mistakes[sorted[j]];
+      html += '<span class="mb-chip">' + m.a + ' × ' + m.b +
+              (m.count > 1 ? ' · 错 ' + m.count + ' 次' : '') + '</span>';
+    }
+    mbList.innerHTML = html;
+  }
+
+  function clearMistakes() {
+    mistakes = {};
+    saveMistakes();
+    renderMistakes();
+  }
+
+  /* ---------- 题组 ---------- */
+  function shuffleArr(arr) {
+    for (var i = arr.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+    }
+    return arr;
+  }
+
+  function buildDeck() {
+    var list = [], a, b;
+    if (cfg.scope === 'single') {
+      for (b = 1; b <= 9; b++) list.push([cfg.single, b]);
+      return cfg.shuffle ? shuffleArr(list) : list;
+    }
+
+    // 错题强化：基础题组之上，按概率混入错题（错得越多权重越高），占比约 45%
+    var from = cfg.scope === 'nine' ? 2 : 1;
+    for (a = from; a <= 9; a++) {
+      for (b = 1; b <= 9; b++) list.push([a, b]);
+    }
+    if (cfg.shuffle) shuffleArr(list);
+
+    if (cfg.scope !== 'mistakes') return list;
+
+    var entries = [];
+    for (var k in mistakes) {
+      if (Object.prototype.hasOwnProperty.call(mistakes, k)) entries.push(mistakes[k]);
+    }
+    if (!entries.length) return list;
+
+    var out = [];
+    var prevKey = null;
+    for (var i = 0; i < list.length; i++) {
+      if (Math.random() < MISTAKE_RATE) {
+        var m = pickMistake(entries, prevKey);
+        if (m) {
+          out.push([m.a, m.b]);
+          prevKey = m.a + 'x' + m.b;
+          continue;
+        }
+      }
+      out.push(list[i]);
+      prevKey = mistakeKey(list[i][0], list[i][1]);
+    }
+    return out;
+  }
+
+  // 按错误次数加权抽取，尽量避免与上一题相同
+  function pickMistake(entries, prevKey) {
+    var pool = [], weights = [];
+    for (var i = 0; i < entries.length; i++) {
+      var k = entries[i].a + 'x' + entries[i].b;
+      if (k === prevKey) continue;
+      pool.push(entries[i]);
+      weights.push(Math.min(entries[i].count, 5));
+    }
+    if (!pool.length) pool = entries, weights = [1];
+    var sum = 0;
+    for (var j = 0; j < weights.length; j++) sum += weights[j];
+    var r = Math.random() * sum;
+    for (var t = 0; t < pool.length; t++) {
+      r -= weights[t];
+      if (r <= 0) return pool[t];
+    }
+    return pool[pool.length - 1];
+  }
+
+  /* ---------- 计时器 ---------- */
+  function clearTimers() {
+    if (revealTimer) { clearTimeout(revealTimer); revealTimer = null; }
+    if (autoTimer) { clearTimeout(autoTimer); autoTimer = null; }
+    if (tickTimer) { clearInterval(tickTimer); tickTimer = null; }
+  }
+
+  function freezeBar() {
+    var trackW = trackEl.getBoundingClientRect().width || 1;
+    var w = barEl.getBoundingClientRect().width;
+    var pct = Math.max(0, Math.min(100, (w / trackW) * 100));
+    barEl.style.transition = 'none';
+    barEl.style.width = pct + '%';
+  }
+
+  /* ---------- 渲染 ---------- */
+  function updateMeta() {
+    var total = deck.length || 0;
+    var cur = phase === 'done' ? total : Math.min(idx + 1, total);
+    var txt = cur + ' / ' + total;
+    if (review.length) txt += ' · 重练 ' + review.length;
+    metaEl.textContent = txt;
+
+    statbarEl.classList.toggle('hide', cfg.mode !== 'input');
+  }
+
+  function updateStats() {
+    if (stats.total === 0) {
+      rateEl.textContent = '—';
+      rateEl.className = '';
+      fracEl.textContent = '正确 0 / 0';
+      return;
+    }
+    var rate = Math.round((stats.correct / stats.total) * 100);
+    rateEl.textContent = rate + '%';
+    rateEl.className = rate >= 90 ? 'good' : (rate < 60 ? 'bad' : '');
+    fracEl.textContent = '正确 ' + stats.correct + ' / ' + stats.total;
+  }
+
+  function saveStats() {
+    try { localStorage.setItem('tt_stats_v1', JSON.stringify(stats)); } catch (e) {}
+  }
+
+  function loadStats() {
+    try {
+      var o = JSON.parse(localStorage.getItem('tt_stats_v1') || 'null');
+      if (o && typeof o === 'object') {
+        stats.total = Math.max(0, parseInt(o.total, 10) || 0);
+        stats.correct = Math.min(stats.total, Math.max(0, parseInt(o.correct, 10) || 0));
+      }
+    } catch (e) {}
+  }
+
+  function setCd(text, kind) {
+    cdEl.textContent = text;
+    cdEl.className = 'cd' + (kind ? ' ' + kind : '');
+  }
+
+  function startBar(ms) {
+    void barEl.offsetWidth;
+    barEl.style.transition = 'width ' + ms + 'ms linear';
+    barEl.style.width = '100%';
+
+    endAt = (window.performance && performance.now) ? performance.now() + ms : Date.now() + ms;
+    tickTimer = setInterval(function () {
+      var now = (window.performance && performance.now) ? performance.now() : Date.now();
+      var left = Math.max(0, endAt - now);
+      if (cfg.mode === 'reveal') {
+        setCd(Math.ceil(left / 1000) + ' 秒后揭晓');
+      } else if (left > 0) {
+        setCd('剩余 ' + Math.ceil(left / 1000) + ' 秒');
+      }
+      if (left <= 0) { clearInterval(tickTimer); tickTimer = null; }
+    }, 100);
+  }
+
+  function focusInput() {
+    try { typeIn.focus({ preventScroll: true }); } catch (e) { typeIn.focus(); }
+  }
+
+  function startQuestion() {
+    clearTimers();
+    phase = 'question';
+
+    cardEl.classList.remove('revealed', 'correct', 'wrong');
+    cardEl.classList.toggle('mode-input', cfg.mode === 'input');
+    doneEl.classList.remove('show');
+    assessEl.classList.remove('show');
+    ansEl.classList.remove('show');
+    ansEl.classList.add('pending');
+    ansEl.textContent = '？';
+
+    typeIn.value = '';
+    typeIn.disabled = false;
+
+    var q = deck[idx];
+    qaEl.textContent = q[0];
+    qbEl.textContent = q[1];
+
+    barEl.style.transition = 'none';
+    barEl.style.width = '0%';
+
+    if (cfg.mode === 'reveal') {
+      var ms = cfg.delay * 1000;
+      trackEl.classList.remove('invisible');
+      setCd(cfg.delay + ' 秒后揭晓');
+      revealTimer = setTimeout(reveal, ms);
+      startBar(ms);
+    } else {
+      if (cfg.timing === 'timed') {
+        var ms2 = cfg.limit * 1000;
+        trackEl.classList.remove('invisible');
+        setCd('限时 ' + cfg.limit + ' 秒');
+        revealTimer = setTimeout(timeoutQuestion, ms2);
+        startBar(ms2);
+      } else {
+        trackEl.classList.add('invisible');
+        setCd('不限时 · 输入数字后回车');
+      }
+      focusInput();
+    }
+
+    updateMeta();
+  }
+
+  /* ---------- 看答案模式 ---------- */
+  function reveal() {
+    if (phase !== 'question' || cfg.mode !== 'reveal') return;
+    clearTimers();
+    phase = 'revealed';
+
+    var q = deck[idx];
+    ansEl.classList.remove('pending');
+    ansEl.textContent = q[0] * q[1];
+    ansEl.classList.add('show');
+    cardEl.classList.add('revealed');
+
+    barEl.style.transition = 'none';
+    barEl.style.width = '100%';
+    setCd('答案');
+    assessEl.classList.add('show');
+
+    if (cfg.auto) {
+      autoTimer = setTimeout(function () { autoTimer = null; goNext(); }, 2000);
+    }
+  }
+
+  /* ---------- 输入模式 ---------- */
+  // isTimeout = true 时表示时间到，直接判定当前输入框里的数字
+  function judge(isTimeout) {
+    if (phase !== 'question' || cfg.mode !== 'input') return;
+
+    var raw = typeIn.value.trim();
+    if (!isTimeout && !raw) return;   // 回车提交时没输入，忽略
+
+    var q = deck[idx];
+    var expected = q[0] * q[1];
+    var got = raw ? parseInt(raw, 10) : null;
+
+    clearTimers();
+    freezeBar();
+    phase = 'revealed';
+    stats.total++;
+    roundStats.total++;
+
+    if (got !== null && got === expected) {
+      stats.correct++;
+      roundStats.correct++;
+      typeIn.classList.add('ok');
+      try { typeIn.blur(); } catch (e) {}
+      cardEl.classList.add('correct');
+      setCd(isTimeout ? '✓ 时间到，答案正确 · 下一题' : '✓ 正确 · 下一题', 'ok');
+      recordMistake(q[0], q[1], false);
+      saveStats();
+      updateStats();
+      updateMeta();
+      autoTimer = setTimeout(function () { autoTimer = null; goNext(); }, 620);
+      return;
+    }
+
+    // 答错 / 超时 / 超时且未作答
+    cardEl.classList.add('wrong');
+    cardEl.classList.remove('mode-input');   // 收起输入框，露出正确答案
+    try { typeIn.blur(); } catch (e) {}
+    ansEl.classList.remove('pending');
+    ansEl.textContent = expected;
+    ansEl.classList.add('show');
+
+    var msg;
+    if (got === null) {
+      msg = '时间到，未作答 · 正确 ' + expected;
+    } else if (isTimeout) {
+      msg = '时间到 · 你答 ' + got + '，正确 ' + expected;
+    } else {
+      msg = '你答 ' + got + ' · 正确 ' + expected;
+    }
+    setCd(msg + ' · 回车继续', 'bad');
+
+    if (review.indexOf(deck[idx]) === -1) review.push(deck[idx]);
+    recordMistake(q[0], q[1], true);
+    saveStats();
+    updateStats();
+    updateMeta();
+  }
+
+  function submit() { judge(false); }
+  function timeoutQuestion() { judge(true); }
+
+  /* ---------- 流程 ---------- */
+  function finishDeck() {
+    if (review.length) {
+      deck = review.slice();
+      review = [];
+      idx = 0;
+      startQuestion();
+      return;
+    }
+    phase = 'done';
+    clearTimers();
+    cardEl.classList.remove('revealed', 'correct', 'wrong', 'mode-input');
+    assessEl.classList.remove('show');
+    ansEl.classList.remove('show', 'pending');
+    ansEl.textContent = '✓';
+    doneTitle.textContent = '本轮完成';
+    doneSub.textContent = cfg.mode === 'input'
+      ? ('本轮 ' + deck.length + ' 题 · 正确 ' + roundStats.correct + ' / ' + roundStats.total +
+         (roundStats.total ? '（' + Math.round(roundStats.correct / roundStats.total * 100) + '%）' : ''))
+      : ('共 ' + deck.length + ' 题');
+    doneEl.classList.add('show');
+    barEl.style.transition = 'none';
+    barEl.style.width = '100%';
+    trackEl.classList.remove('invisible');
+    setCd('已完成');
+    updateMeta();
+  }
+
+  function goNext() {
+    clearTimers();
+    if (phase === 'done') return;
+    idx++;
+    if (idx >= deck.length) { finishDeck(); return; }
+    startQuestion();
+  }
+
+  function markAgain() {
+    if (phase !== 'revealed') return;
+    var q = deck[idx];
+    if (review.indexOf(q) === -1) review.push(q);
+    recordMistake(q[0], q[1], true);
+    goNext();
+  }
+
+  function restart() {
+    clearTimers();
+    deck = buildDeck();
+    idx = 0;
+    review = [];
+    roundStats = { total: 0, correct: 0 };   // 累计统计不受影响
+    startQuestion();
+    updateStats();
+  }
+
+  /* ---------- 交互 ---------- */
+  cardEl.addEventListener('click', function (e) {
+    if (e.target === typeIn) return;
+    if (cfg.mode === 'input' && phase === 'question') { focusInput(); return; }
+    if (phase === 'question') reveal();
+    else if (phase === 'revealed') goNext();
+    else if (phase === 'done') restart();
+  });
+
+  assessEl.addEventListener('click', function (e) {
+    var btn = e.target.closest('button[data-act]');
+    if (!btn) return;
+    e.stopPropagation();
+    if (btn.dataset.act === 'known') { clearTimers(); goNext(); }
+    else markAgain();
+  });
+
+  $('nextBtn').addEventListener('click', function () {
+    if (cfg.mode === 'input' && phase === 'question') { submit(); return; }
+    if (phase === 'question') reveal();
+    else if (phase === 'revealed') goNext();
+    else restart();
+  });
+
+  $('restart').addEventListener('click', function (e) {
+    e.stopPropagation();
+    restart();
+  });
+
+  $('resetStats').addEventListener('click', function (e) {
+    e.stopPropagation();
+    stats = { total: 0, correct: 0 };
+    saveStats();
+    updateStats();
+  });
+
+  $('clearMistakes').addEventListener('click', function (e) {
+    e.stopPropagation();
+    clearMistakes();
+  });
+
+  typeIn.addEventListener('input', function () {
+    var v = typeIn.value.replace(/\D/g, '').slice(0, 3);
+    if (v !== typeIn.value) typeIn.value = v;
+  });
+
+  // 全局键盘：任何时候都能直接敲数字，不需要先点屏幕
+  document.addEventListener('keydown', function (e) {
+    var isDigit = /^[0-9]$/.test(e.key);
+    var tag = e.target && e.target.tagName;
+
+    // 焦点在设置控件上时不要劫持按键
+    if (tag === 'SELECT' || (tag === 'INPUT' && e.target !== typeIn)) return;
+
+    if (e.target === typeIn) {
+      if (e.key === 'Enter') { e.preventDefault(); submit(); }
+      else if (e.key === 'Escape') { typeIn.value = ''; }
+      return;
+    }
+
+    if (cfg.mode === 'input') {
+      if (phase === 'question') {
+        if (isDigit) {
+          e.preventDefault();
+          focusInput();
+          typeIn.value = (typeIn.value + e.key).slice(0, 3);
+          return;
+        }
+        if (e.key === 'Backspace') {
+          e.preventDefault();
+          focusInput();
+          typeIn.value = typeIn.value.slice(0, -1);
+          return;
+        }
+        if (e.key === 'Enter') { e.preventDefault(); submit(); return; }
+      } else if (phase === 'revealed') {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goNext(); return; }
+      } else if (phase === 'done') {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); restart(); return; }
+      }
+      return;
+    }
+
+    if (e.key === ' ' || e.key === 'Enter') {
+      e.preventDefault();
+      if (phase === 'question') reveal();
+      else if (phase === 'revealed') goNext();
+      else restart();
+    }
+  });
+
+  /* ---------- 设置项 ---------- */
+  var modeSel    = $('mode');
+  var scopeSel   = $('scope');
+  var singleSel  = $('single');
+  var singleRow  = $('singleRow');
+  var timingSel  = $('timing');
+  var limitInput = $('limit');
+  var limitVal   = $('limitVal');
+  var delayInput = $('delay');
+  var delayVal   = $('delayVal');
+  var autoSw     = $('autoSw');
+  var shuffleSw  = $('shuffleSw');
+
+  function syncSwitches() {
+    shuffleSw.classList.toggle('on', cfg.shuffle);
+    autoSw.classList.toggle('on', cfg.auto);
+  }
+
+  function syncVisibility() {
+    var isInput = cfg.mode === 'input';
+    Array.prototype.forEach.call(document.querySelectorAll('.inputOnly'), function (el) {
+      el.classList.toggle('hide', !isInput);
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('.revealOnly'), function (el) {
+      el.classList.toggle('hide', isInput);
+    });
+    singleRow.classList.toggle('hide', cfg.scope !== 'single');
+    limitsRow.classList.toggle('hide', !isInput || cfg.timing !== 'timed');
+    hintEl.textContent = isInput
+      ? (cfg.timing === 'timed'
+          ? '直接敲数字键输入 · 敲完自动判定，也可回车提前提交'
+          : '直接敲数字键输入 · 回车提交 · 退格删除')
+      : '空格 / 回车：立即揭晓 · 再按一次进入下一题';
+  }
+
+  function syncControls() {
+    modeSel.value = cfg.mode;
+    scopeSel.value = cfg.scope;
+    singleSel.value = String(cfg.single);
+    timingSel.value = cfg.timing;
+    limitInput.value = String(cfg.limit);
+    limitVal.textContent = cfg.limit + 's';
+    delayInput.value = String(cfg.delay);
+    delayVal.textContent = cfg.delay + 's';
+    syncSwitches();
+    syncVisibility();
+  }
+
+  modeSel.addEventListener('change', function () {
+    cfg.mode = modeSel.value;
+    saveCfg();
+    syncVisibility();
+    restart();
+  });
+
+  scopeSel.addEventListener('change', function () {
+    cfg.scope = scopeSel.value;
+    saveCfg();
+    syncVisibility();
+    restart();
+  });
+
+  singleSel.addEventListener('change', function () {
+    cfg.single = parseInt(singleSel.value, 10);
+    saveCfg();
+    restart();
+  });
+
+  timingSel.addEventListener('change', function () {
+    cfg.timing = timingSel.value;
+    saveCfg();
+    syncVisibility();
+    restart();
+  });
+
+  limitInput.addEventListener('input', function () {
+    cfg.limit = parseInt(limitInput.value, 10);
+    limitVal.textContent = cfg.limit + 's';
+    saveCfg();
+    if (phase === 'question' && cfg.mode === 'input' && cfg.timing === 'timed') startQuestion();
+  });
+
+  delayInput.addEventListener('input', function () {
+    cfg.delay = parseInt(delayInput.value, 10);
+    delayVal.textContent = cfg.delay + 's';
+    saveCfg();
+    if (phase === 'question' && cfg.mode === 'reveal') startQuestion();
+  });
+
+  autoSw.addEventListener('click', function () {
+    cfg.auto = !cfg.auto;
+    syncSwitches();
+    saveCfg();
+    if (cfg.auto && phase === 'revealed' && cfg.mode === 'reveal' && !autoTimer) {
+      autoTimer = setTimeout(function () { autoTimer = null; goNext(); }, 1500);
+    }
+    if (!cfg.auto && autoTimer) { clearTimeout(autoTimer); autoTimer = null; }
+  });
+
+  shuffleSw.addEventListener('click', function () {
+    cfg.shuffle = !cfg.shuffle;
+    syncSwitches();
+    saveCfg();
+    restart();
+  });
+
+  // 点到空白处也把焦点还给输入框，保持随时可敲
+  document.addEventListener('mousedown', function (e) {
+    if (cfg.mode !== 'input' || phase !== 'question') return;
+    if (e.target === typeIn) return;
+    if (e.target.closest('#settings') || e.target.closest('.actions')) return;
+    if (e.target.closest('button') || e.target.closest('select') || e.target.closest('input')) return;
+    e.preventDefault();
+    focusInput();
+  });
+
+  /* ---------- 启动 ---------- */
+  loadCfg();
+  loadStats();
+  loadMistakes();
+  syncControls();
+  restart();
+  updateStats();
+  renderMistakes();
+})();
+</script>
+</body>
+</html>
