@@ -173,6 +173,7 @@
   .assess button:hover{background:rgba(255,255,255,.11)}
   .assess button:active{transform:scale(.96)}
   .assess button.known{border-color:rgba(52,211,153,.35);color:#a7f3d0}
+  .assess button.forgot{border-color:rgba(248,113,113,.35);color:#fecaca}
   .assess button.again{border-color:rgba(251,146,60,.32);color:#fed7aa}
 
   /* 完成态 */
@@ -360,6 +361,7 @@
 
     <div class="assess" id="assess">
       <button type="button" class="known" data-act="known">记住了</button>
+      <button type="button" class="forgot" data-act="forgot">没记住</button>
       <button type="button" class="again" data-act="again">再看一遍</button>
     </div>
 
@@ -834,6 +836,7 @@
     barEl.style.width = '100%';
     setCd('答案');
     assessEl.classList.add('show');
+    updateActionLabel();
 
     if (cfg.auto) {
       autoTimer = setTimeout(function () { autoTimer = null; goNext(); }, 2000);
@@ -949,6 +952,14 @@
     goNext();
   }
 
+  // 没记住：计入错题本（错误次数+1、连续答对清零），本轮不重出，交给错题强化模式
+  function markForgot() {
+    if (phase !== 'revealed') return;
+    var q = deck[idx];
+    recordMistake(q[0], q[1], true);
+    goNext();
+  }
+
   function restart() {
     clearTimers();
     deck = buildDeck();
@@ -977,7 +988,8 @@
     var btn = e.target.closest('button[data-act]');
     if (!btn) return;
     e.stopPropagation();
-    if (btn.dataset.act === 'known') { clearTimers(); goNext(); }
+    if (btn.dataset.act === 'known') { clearTimers(); recordMistake(deck[idx][0], deck[idx][1], false); goNext(); }
+    else if (btn.dataset.act === 'forgot') markForgot();
     else markAgain();
   });
 
